@@ -2822,12 +2822,13 @@ def static_file(filename, root,
 
     if etag:
         headers['ETag'] = etag
-        check = getenv('HTTP_IF_NONE_MATCH')
-        if check and check == etag:
-            return HTTPResponse(status=304, **headers)
+
+    inm = getenv('HTTP_IF_NONE_MATCH')
+    if inm and inm == etag:
+        return HTTPResponse(status=304, **headers)
 
     ims = getenv('HTTP_IF_MODIFIED_SINCE')
-    if ims:
+    if ims and not inm:
         ims = parse_date(ims.split(";")[0].strip())
         if ims is not None and ims >= int(stats.st_mtime):
             return HTTPResponse(status=304, **headers)

@@ -134,6 +134,24 @@ class TestSendFile(unittest.TestCase):
         self.assertNotEqual(etag, res.headers['ETag'])
         self.assertEqual(200, res.status_code)
 
+    def test_etag_overrides_ims(self):
+        """ RFC 7232 sec 3.3: If-Modified-Since MUST be ignored whenever
+        If-None-Match is present in the request. """
+
+        # If-Modified-Since would return 304 but If-None-Match should
+        # override and prevent that.
+        request.environ['HTTP_IF_NONE_MATCH'] = '"no-match"'
+        request.environ['HTTP_IF_MODIFIED_SINCE'] = bottle.http_date(time.time())
+        res = static_file(basename, root=root)
+        self.assertEqual(200, res.status_code)
+
+        # If-Modified-Since would return 200 but If-None-Match should
+        # override and prevent that.
+        request.environ['HTTP_IF_NONE_MATCH'] = res.headers['ETag']
+        request.environ['HTTP_IF_MODIFIED_SINCE'] = bottle.http_date(100)
+        res = static_file(basename, root=root)
+        self.assertEqual(304, res.status_code)
+
     def test_download(self):
         """ SendFile: Download as attachment """
         f = static_file(basename, root=root, download="foo.mp3")
