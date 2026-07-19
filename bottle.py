@@ -2816,9 +2816,9 @@ def static_file(filename, root,
     headers['Date'] = email.utils.formatdate(time.time(), usegmt=True)
 
     if etag is None:
-        etag = '%d:%d:%d:%d:%s' % (stats.st_dev, stats.st_ino, stats.st_mtime,
-                                   clen, filename)
-        etag = hashlib.sha1(tob(etag)).hexdigest()
+        etag = hashlib.sha1(tob('%d:%d:%d:%d:%s' % (
+            stats.st_dev, stats.st_ino, stats.st_mtime, clen, filename
+        ))).hexdigest()
 
     if etag:
         headers['ETag'] = etag
@@ -2829,8 +2829,8 @@ def static_file(filename, root,
 
     ims = getenv('HTTP_IF_MODIFIED_SINCE')
     if ims and not inm:
-        ims = parse_date(ims.split(";")[0].strip())
-        if ims is not None and ims >= int(stats.st_mtime):
+        ims = parse_date(ims.split(";")[0].strip()) or 0
+        if ims >= stats.st_mtime:
             return HTTPResponse(status=304, **headers)
 
     body = '' if request.method == 'HEAD' else open(filename, 'rb')
