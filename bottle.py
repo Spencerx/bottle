@@ -2759,8 +2759,9 @@ def static_file(filename, root,
             original filename is used (default: False).
         :param charset: The charset for files with a ``text/*`` mime-type.
             (default: UTF-8)
-        :param etag: Provide a pre-computed ETag header. If set to ``False``,
-            ETag handling is disabled. (default: auto-generate ETag header)
+        :param etag: Provide a valid (quoted, non-weak) ETag header value.
+            If set to ``False``, ETag handling is disabled.
+            (default: auto-generate ETag from file metadata)
         :param headers: Additional headers dict to add to the response.
 
         While checking user input is always a good idea, this function provides
@@ -2816,7 +2817,7 @@ def static_file(filename, root,
     headers['Date'] = email.utils.formatdate(time.time(), usegmt=True)
 
     if etag is None:
-        etag = hashlib.sha1(tob('%d:%d:%d:%d:%s' % (
+        etag = '"%s"' % hashlib.sha1(tob('%d:%d:%d:%d:%s' % (
             stats.st_dev, stats.st_ino, stats.st_mtime, clen, filename
         ))).hexdigest()
 
@@ -2824,7 +2825,7 @@ def static_file(filename, root,
         headers['ETag'] = etag
 
     inm = getenv('HTTP_IF_NONE_MATCH')
-    if inm and inm == etag:
+    if inm and etag and etag in inm:
         return HTTPResponse(status=304, **headers)
 
     ims = getenv('HTTP_IF_MODIFIED_SINCE')

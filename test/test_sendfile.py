@@ -116,22 +116,39 @@ class TestSendFile(unittest.TestCase):
         self.assertEqual(open(__file__, 'rb').read(), static_file(basename, root=root).body.read())
 
     def test_etag(self):
-        """ SendFile: If-Modified-Since"""
+        """ SendFile: If-None-Match"""
         res = static_file(basename, root=root)
         self.assertTrue('ETag' in res.headers)
         self.assertEqual(200, res.status_code)
         etag = res.headers['ETag']
-        
+
+        # Known and matching etag should return 304
         request.environ['HTTP_IF_NONE_MATCH'] = etag
         res = static_file(basename, root=root)
-        self.assertTrue('ETag' in res.headers)
-        self.assertEqual(etag, res.headers['ETag'])
+        self.assertEqual(etag, res.headers.get('ETag'))
         self.assertEqual(304, res.status_code)
 
+        # The INM header can be multi-valued
+        request.environ['HTTP_IF_NONE_MATCH'] = '"multi", "valued", ' + etag
+        self.assertEqual(etag, res.headers.get('ETag'))
+        self.assertEqual(304, static_file(basename, root=root).status_code)
+
+        # Non-matching etag
+        request.environ['HTTP_IF_NONE_MATCH'] = '"BadEtag"'
+        res = static_file(basename, root=root)
+        self.assertEqual(etag, res.headers.get('ETag'))
+        self.assertEqual(200, res.status_code)
+
+        # Unquoted (invalid) etag
+        request.environ['HTTP_IF_NONE_MATCH'] = etag.strip('"')
+        res = static_file(basename, root=root)
+        self.assertEqual(etag, res.headers.get('ETag'))
+        self.assertEqual(200, res.status_code)
+
+        # Etag for different file etag
         request.environ['HTTP_IF_NONE_MATCH'] = etag
         res = static_file(basename2, root=root2)
-        self.assertTrue('ETag' in res.headers)
-        self.assertNotEqual(etag, res.headers['ETag'])
+        self.assertNotEqual(etag, res.headers.get('ETag'))
         self.assertEqual(200, res.status_code)
 
     def test_etag_overrides_ims(self):
